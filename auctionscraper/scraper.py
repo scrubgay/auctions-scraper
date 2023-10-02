@@ -41,12 +41,12 @@ def create_calendar_url(baseurl:str, days=0, days_out = 90, forward = False) -> 
             calendar.append(baseurl + "&selCalDate=" + date_url)
     return calendar
 
-def get_calendar_list(category:str, days:int) -> list:
+def get_calendar_list(category:str, days:int, days_out:int) -> list:
   """ Get calendar url list to be scraped """
   calendar_url = []
   for subdomain in read_txt(f"{category}.txt"):
       baseurl = create_baseurl(subdomain, category)
-      calendar_url += create_calendar_url(baseurl, days=days)
+      calendar_url += create_calendar_url(baseurl, days=days, days_out=days_out)
   return calendar_url
 
 def parse_box(page:Page) -> list:
