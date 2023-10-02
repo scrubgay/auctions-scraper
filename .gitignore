@@ -56,3 +56,6 @@ temp/
 
 # Python cache
 __pycache__/
+
+# Drop history
+history/
