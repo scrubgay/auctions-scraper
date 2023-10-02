@@ -3,6 +3,7 @@ from playwright.sync_api import Page
 from datetime import date, timedelta
 import logging
 import re
+import time # time calculations
 
 # Logger
 logging.basicConfig(level=logging.DEBUG)
@@ -19,17 +20,23 @@ def create_baseurl(subdomain:str, category:str) -> str:
     else:
         return f"https://{subdomain}.real{category}.com/index.cfm?zaction=USER&zmethod=CALENDAR"
 
-def create_calendar_url(baseurl:str, days=0) -> list:
+def create_calendar_url(baseurl:str, days=0, days_out = 90, forward = False) -> list:
+    # days_out passed as parameter
+    # forward controls whether we search backwards from 'days' offset 
+    # or forwards (future auctions)
     """ Get calendar pages to be scraped """
     tday = date.today() + timedelta(days=days)
-    days_out = 90
     calendar = []
-    month = []
+    indices = []
     for day in range(0, days_out, 28):
-        calendar_date = tday + timedelta(days=day)
-        index = calendar_date.strftime('%m/%d/%Y').split('/')[0]
-        if index not in month:
-            month.append(index)
+        if forward :
+            calendar_date = tday + timedelta(days=day)
+        else :
+            calendar_date = tday - timedelta(days=day)
+        calendar_date = calendar_date.replace(day = 1) # you only need the first day of the month
+        index = calendar_date.strftime('%m/%d/%Y')
+        if index not in indices:
+            indices.append(index)
             date_url = calendar_date.strftime('%m/%d/%Y')
             calendar.append(baseurl + "&selCalDate=" + date_url)
     return calendar
