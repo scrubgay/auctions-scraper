@@ -9,13 +9,13 @@ logging.basicConfig(level=logging.DEBUG)
 def chunker(seq, size):
     return (seq[pos:pos + size] for pos in range(0, len(seq), size))
 
-def scrape(category:str, output:str):
+def scrape(category:str, output:str, day_offset:int=0, days_out:int=365, search_direction:bool=False, batch_size:int=20):
     # LEVEL 1 - scrape schedules from calendars
-    calendar_url_list = scraper.get_calendar_list(category, days=0, days_out = 365*1, forward = False)
+    calendar_url_list = scraper.get_calendar_list(category, days=day_offset, days_out=days_out, forward=search_direction)
     box_url_list = scraper.get_box_list(calendar_url_list)
 
     # batch/chunk so it doesn't crash on big inputs
-    box_chunks = [chunk for chunk in chunker(box_url_list, 20)]
+    box_chunks = [chunk for chunk in chunker(box_url_list, batch_size)]
 
     errors = []
     # do in batches to hedge against fuck shit
@@ -39,5 +39,5 @@ def scrape(category:str, output:str):
     
 
 if __name__ == '__main__':
-    scrape('foreclose', 'history/foreclose')
-    scrape('taxdeed', 'history/taxdeed')
+    scrape('foreclose', 'history/foreclose', 0, 365*5, False, 25)
+    scrape('taxdeed', 'history/taxdeed', 0, 365*5, False, 25)
