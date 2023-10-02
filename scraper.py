@@ -11,7 +11,7 @@ def chunker(seq, size):
 
 def scrape(category:str, output:str):
     # LEVEL 1 - scrape schedules from calendars
-    calendar_url_list = scraper.get_calendar_list(category, days=-365*10, days_out = 365*5)
+    calendar_url_list = scraper.get_calendar_list(category, days=0, days_out = 365*1, forward = False)
     box_url_list = scraper.get_box_list(calendar_url_list)
 
     # batch/chunk so it doesn't crash on big inputs
