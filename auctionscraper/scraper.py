@@ -3,7 +3,7 @@ from playwright.sync_api import Page
 from datetime import date, timedelta
 import logging
 import re
-import time # time calculations
+import time # rate-limiting functions
 
 # Logger
 logging.basicConfig(level=logging.DEBUG)
@@ -77,6 +77,7 @@ def get_box_list(urls:list) -> list:
         page = browser.new_page()
         page.set_default_timeout(90000)
         for url in urls:
+            time.sleep(1) # rate limiting
             # access page
             logging.debug(f"GET {url} | LEVEL 1")
             try:
@@ -100,54 +101,82 @@ def get_data(urls:list):
         page = browser.new_page()
         page.set_default_timeout(90000)
         for url in urls:
+            time.sleep(1) # rate-limiting, should be parameterized
             # access page
-            logging.debug(f"GET {url} | LEVEL 2")
             try:
                 page.goto(url)
-                page.wait_for_selector('#Area_W > .AUCTION_ITEM.PREVIEW')
-                cards = page.query_selector_all('#Area_W > .AUCTION_ITEM.PREVIEW')
-                for card in cards:
-                    # parse date
-                    auction_date = re.sub(r'^.+AUCTIONDATE=(\d{2}/\d{2}/\d{4})$', '\\1', url)
-                    # parse fields
-                    auction_field = []
-                    for text in card.query_selector_all('tr > th'):
-                        th = text.inner_text().replace('#','').replace(':','').strip()
-                        if th == '':
-                            th = 'city'
-                        th = th.lower().replace(' ','_')
-                        auction_field.append(th)
-                    # parse content
-                    auction_content = [text.inner_text().strip() for text in card.query_selector_all('tr > td')]
-                    if len(auction_field) == len(auction_content):
-                        auction_info = {auction_field[i]:auction_content[i] for i in range(len(auction_field))}
-                        fields = list(auction_info.keys())
-                        for key in fields:
-                            if key == "city":
-                                city = auction_info[key].split(', ')[0].strip()
-                                zipcode = auction_info[key].split(',')[1].strip()
-                                try:
-                                    state = zipcode.split('-')[0].strip()
-                                    zipcode = zipcode.split('-')[1].strip()
-                                except:
-                                    state = 'FL'
-                                    zipcode = zipcode
-                                auction_info.update({
-                                    'city':city,
-                                    'state':state,
-                                    'zipcode':zipcode,
-                                    'auction_date': auction_date,
-                                })
-                    else:
-                        logging.warning(f"Length of information's fields and contents doesn't matches: {url}")
-                        continue
-                    data.append(auction_info)
+                page.wait_for_selector('#Area_C > .AUCTION_ITEM.PREVIEW') # change from #Area_W
+                cards = page.query_selector_all('#Area_C > .AUCTION_ITEM.PREVIEW')
+                # counter
+                max_paginate = int(page.query_selector("#maxCA").inner_text())
+                auction_date = re.sub(r'^.+AUCTIONDATE=(\d{2}/\d{2}/\d{4})$', '\\1', url)
+                for i in range(max_paginate) :
+                    logging.debug(f"Page {i + 1} of {max_paginate}")
+                    for card in cards:
+                        # parse date
+                        auction_date = re.sub(r'^.+AUCTIONDATE=(\d{2}/\d{2}/\d{4})$', '\\1', url)
+                        # parse fields
+                        auction_field = []
+                        ## this is for AUCTION_STATS
+                        auction_status = card.query_selector(".ASTAT_MSGA").inner_text()
+                        if auction_status == "Auction Sold" :
+                            auction_status = "Sold"
+                            auction_sold_date = card.query_selector(".ASTAT_MSGB").inner_text()
+                            auction_amount = card.query_selector(".ASTAT_MSGD").inner_text().replace("$", "").replace(",", "")
+                            auction_soldto = card.query_selector(".ASTAT_MSG_SOLDTO_MSG").inner_text()
+                        else :
+                            auction_status = card.query_selector(".ASTAT_MSGB").inner_text()
+                            auction_sold_date = ""
+                            auction_amount = ""
+                            auction_soldto = ""
+
+                        ## this is for AUCTION_DETAILS
+                        for text in card.query_selector_all('tr > th'):
+                            th = text.inner_text().replace('#','').replace(':','').strip()
+                            if th == '':
+                                th = 'city'
+                            th = th.lower().replace(' ','_')
+                            auction_field.append(th)
+                        # parse content
+                        auction_content = [text.inner_text().strip() for text in card.query_selector_all('tr > td')]
+                        if len(auction_field) == len(auction_content):
+                            auction_info = {auction_field[i]:auction_content[i] for i in range(len(auction_field))}
+                            fields = list(auction_info.keys())
+                            for key in fields:
+                                if key == "city":
+                                    city = auction_info[key].split(', ')[0].strip()
+                                    zipcode = auction_info[key].split(',')[1].strip()
+                                    try:
+                                        state = zipcode.split('-')[0].strip()
+                                        zipcode = zipcode.split('-')[1].strip()
+                                    except:
+                                        state = 'FL'
+                                        zipcode = zipcode
+                                    auction_info.update({
+                                        'city':city,
+                                        'state':state,
+                                        'zipcode':zipcode,
+                                        'auction_datetime': auction_date,
+                                        "auction_status": auction_status,
+                                        "auction_sold_date": auction_sold_date,
+                                        "auction_soldto": auction_soldto
+                                    })
+                        else:
+                            logging.warning(f"Length of information's fields and contents doesn't matches: {url}")
+                            continue
+                        data.append(auction_info)
+                    if i + 1 < max_paginate :
+                        paginate = page.query_selector("#curPCA")
+                        paginate.fill(str(i+1))
+                        paginate.press("Enter")
+                        time.sleep(1)
             except Exception as e:
                 logging.warning(f"Failed to GET {url}: {e}")
+                error_dates.append(auction_date)
                 continue
         # close browser
         browser.close()
-    return data
+    return data, error_dates
 
 if __name__ == '__main__':
     pass
