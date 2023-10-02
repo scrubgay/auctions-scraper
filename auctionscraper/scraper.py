@@ -20,7 +20,7 @@ def create_baseurl(subdomain:str, category:str) -> str:
     else:
         return f"https://{subdomain}.real{category}.com/index.cfm?zaction=USER&zmethod=CALENDAR"
 
-def create_calendar_url(baseurl:str, days=0, days_out = 90, forward = False) -> list:
+def create_calendar_url(baseurl:str, days:int=0, days_out:int = 90, forward:bool = False) -> list:
     # days_out passed as parameter
     # forward controls whether we search backwards from 'days' offset 
     # or forwards (future auctions)
